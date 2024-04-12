@@ -1,8 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+abstract class WebSocketClient{
+  Stream<int> getCounterStream();
+}
 
-final counterProvider = StateProvider((ref) => 0);
+class FakeWebsocketClient implements WebSocketClient{
+  @override
+  Stream<int> getCounterStream() async* {
+    int i = 0;
+    while (true){
+      await Future.delayed(const Duration(milliseconds: 500));
+      yield i++;
+    }
+  }
+}
+
+final websocketClientProvider = Provider<WebSocketClient>((ref){return FakeWebsocketClient();});
+final counterProvider = StreamProvider<int>((ref){
+  final wsClient = ref.watch(websocketClientProvider);
+  return wsClient.getCounterStream();
+});
 void main() {
   runApp(const ProviderScope(child: MyApp()));
 }
@@ -44,12 +62,12 @@ class CounterPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final int count = ref.watch(counterProvider);
+    final AsyncValue<int> count = ref.watch(counterProvider);
 
-    ref.listen<int>(
+    ref.listen(
       counterProvider,
       (previous,next){
-        if(next>=5){
+        if(next==32){
           showDialog(
             context: context,
             builder: (context) {
@@ -87,11 +105,7 @@ class CounterPage extends ConsumerWidget {
           style: Theme.of(context).textTheme.displayMedium,
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: (){
-          ref.read(counterProvider.notifier).state++;
-        },
-        child: const Icon(Icons.add),),
+      
     );
   }
 }
